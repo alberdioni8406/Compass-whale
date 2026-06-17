@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BCH Whale Monitor — Live Bitcoin Cash On-Chain Surveillance</title>
+  <meta name="description" content="Live Bitcoin Cash whale tracking: large transactions, exchange wallet flows, known holder balances, network stats and address lookup. No backend, no API keys." />
+
+  <!-- Fonts: JetBrains Mono carries every number and address (ledger feel). Inter carries UI prose. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Inline SVG favicon: a small pulse/ping mark, no external asset needed -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0f0d'/%3E%3Cpath d='M4 18h6l3-9 5 18 3-13 2 4h5' stroke='%230ac18e' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+
+  <!-- ============================== -->
+  <!-- SIGNATURE ELEMENT: live sonar/pulse line. Pings on whale detection. -->
+  <!-- ============================== -->
+  <div class="pulse-rail" aria-hidden="true">
+    <svg class="pulse-line" viewBox="0 0 1200 40" preserveAspectRatio="none">
+      <polyline id="pulseTrace" points="0,20 1200,20" />
+    </svg>
+    <div class="pulse-dot" id="pulseDot"></div>
+  </div>
+
+  <!-- ============================== -->
+  <!-- HEADER / NAV -->
+  <!-- ============================== -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">BCH</span>
+        <span class="brand-name">Whale&nbsp;Monitor</span>
+      </div>
+
+      <div class="topbar-status">
+        <div class="status-chip" id="connStatus" title="Live data connection">
+          <span class="status-dot" id="connDot"></span>
+          <span id="connLabel">Connecting…</span>
+        </div>
+        <div class="price-chip" id="priceChip">
+          <span class="price-symbol">BCH</span>
+          <span class="price-value" id="priceValue">—</span>
+          <span class="price-change" id="priceChange">—</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+
+    <!-- ============================== -->
+    <!-- HERO -->
+    <!-- ============================== -->
+    <section class="hero">
+      <div class="hero-text">
+        <p class="eyebrow">Live on-chain · refreshes automatically</p>
+        <h1>Every large Bitcoin Cash move,<br>surfaced the moment it confirms.</h1>
+        <p class="hero-sub">
+          BCH Whale Monitor reads the live ledger directly — no accounts, no backend,
+          no placeholder numbers. Track whale-sized transactions, known exchange flows,
+          and any address you give it.
+        </p>
+      </div>
+      <div class="hero-meta">
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Network</span>
+          <span class="hero-meta-value" id="heroNetwork">Bitcoin Cash · BCH</span>
+        </div>
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Block height</span>
+          <span class="hero-meta-value mono" id="heroHeight">—</span>
+        </div>
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Last block</span>
+          <span class="hero-meta-value mono" id="heroLastBlock">—</span>
+        </div>
+        <div class="hero-meta-row">
+          <span class="hero-meta-label">Whale threshold</span>
+          <span class="hero-meta-value mono" id="heroThreshold">≥ 50,000 BCH·USD value</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== -->
+    <!-- DASHBOARD STAT GRID -->
+    <!-- ============================== -->
+    <section class="stat-grid" id="statGrid" aria-label="Key network statistics">
+      <article class="stat-card">
+        <p class="stat-label">BCH Price</p>
+        <p class="stat-value mono" id="statPrice">—</p>
+        <p class="stat-sub" id="statPriceSub">—</p>
+      </article>
+      <article class="stat-card">
+        <p class="stat-label">Transactions scanned (session)</p>
+        <p class="stat-value mono" id="statTxCount">0</p>
+        <p class="stat-sub" id="statTxCountSub">across recent blocks</p>
+      </article>
+      <article class="stat-card stat-card--accent">
+        <p class="stat-label">Largest transaction today</p>
+        <p class="stat-value mono" id="statLargestTx">—</p>
+        <p class="stat-sub" id="statLargestTxSub">awaiting data</p>
+      </article>
+      <article class="stat-card">
+        <p class="stat-label">Most active wallet (24h)</p>
+        <p class="stat-value mono" id="statActiveWallet">—</p>
+        <p class="stat-sub" id="statActiveWalletSub">by tx count seen</p>
+      </article>
+      <article class="stat-card">
+        <p class="stat-label">Whale alerts (session)</p>
+        <p class="stat-value mono" id="statWhaleCount">0</p>
+        <p class="stat-sub" id="statWhaleCountSub">large transfers flagged</p>
+      </article>
+      <article class="stat-card">
+        <p class="stat-label">Network hashrate-adjacent</p>
+        <p class="stat-value mono" id="statDifficulty">—</p>
+        <p class="stat-sub">current difficulty</p>
+      </article>
+    </section>
+
+    <!-- ============================== -->
+    <!-- ADDRESS SEARCH -->
+    <!-- ============================== -->
+    <section class="panel" id="searchPanel">
+      <div class="panel-head">
+        <h2>Address lookup</h2>
+        <p class="panel-sub">Search any BCH address — legacy, CashAddr, with or without prefix.</p>
+      </div>
+      <form class="search-form" id="searchForm" autocomplete="off">
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input mono"
+          placeholder="bitcoincash:qpxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          spellcheck="false"
+        />
+        <button type="submit" class="btn-primary" id="searchBtn">Look up</button>
+      </form>
+      <p class="search-hint">Try a known wallet from the leaderboard below, or paste your own.</p>
+
+      <div id="searchResult" class="search-result" hidden>
+        <!-- populated by JS -->
+      </div>
+    </section>
+
+    <!-- ============================== -->
+    <!-- TWO COLUMN: WHALE FEED + CHART -->
+    <!-- ============================== -->
+    <section class="grid-2col">
+
+      <div class="panel panel--feed" id="whaleFeedPanel">
+        <div class="panel-head panel-head--row">
+          <div>
+            <h2>Whale alert feed</h2>
+            <p class="panel-sub">Live large-transaction detections, newest first.</p>
+          </div>
+          <span class="feed-live-chip"><span class="feed-live-dot"></span>LIVE</span>
+        </div>
+        <div class="feed-list" id="whaleFeedList">
+          <p class="feed-empty" id="feedEmptyMsg">Scanning recent blocks for whale-sized movements…</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Transaction value distribution</h2>
+          <p class="panel-sub">Recent on-chain transactions, scanned this session, bucketed by BCH value.</p>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="distChart" width="480" height="280"></canvas>
+        </div>
+        <div class="chart-legend" id="distLegend"></div>
+      </div>
+
+    </section>
+
+    <!-- ============================== -->
+    <!-- RICH LIST / KNOWN HOLDERS -->
+    <!-- ============================== -->
+    <section class="panel" id="richListPanel">
+      <div class="panel-head">
+        <h2>Known major holders</h2>
+        <p class="panel-sub">
+          A true rich list requires indexing every BCH address ever used — not something a static
+          site can compute client-side. Instead, this tracks <strong>publicly documented</strong>
+          high-balance addresses (exchange cold storage, mining pool payouts) with live balances
+          pulled straight from the chain. Honest scope, real numbers.
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table class="ledger-table" id="richListTable">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Label</th>
+              <th>Address</th>
+              <th>Balance (BCH)</th>
+              <th>Balance (USD)</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody id="richListBody">
+            <tr><td colspan="6" class="table-loading">Fetching live balances…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================== -->
+    <!-- ACTIVITY LEADERBOARD -->
+    <!-- ============================== -->
+    <section class="panel" id="leaderboardPanel">
+      <div class="panel-head">
+        <h2>Wallet activity leaderboard (24h window, session-scanned)</h2>
+        <p class="panel-sub">Addresses appearing most often across blocks scanned this session.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="ledger-table" id="leaderboardTable">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Address</th>
+              <th>Label</th>
+              <th>Appearances</th>
+              <th>Total value moved (BCH)</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody">
+            <tr><td colspan="5" class="table-loading">Aggregating activity…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================== -->
+    <!-- NETWORK STATS -->
+    <!-- ============================== -->
+    <section class="panel" id="networkPanel">
+      <div class="panel-head">
+        <h2>Network statistics</h2>
+        <p class="panel-sub">Pulled live from the Haskoin BCH node index.</p>
+      </div>
+      <div class="net-grid" id="netGrid">
+        <div class="net-item"><span class="net-label">Block height</span><span class="net-value mono" id="netHeight">—</span></div>
+        <div class="net-item"><span class="net-label">Headers</span><span class="net-value mono" id="netHeaders">—</span></div>
+        <div class="net-item"><span class="net-label">Peers connected</span><span class="net-value mono" id="netPeers">—</span></div>
+        <div class="net-item"><span class="net-label">Mempool (pending txs)</span><span class="net-value mono" id="netMempool">—</span></div>
+        <div class="net-item"><span class="net-label">Node sync</span><span class="net-value mono" id="netSync">—</span></div>
+        <div class="net-item"><span class="net-label">Last block age</span><span class="net-value mono" id="netLastBlockAge">—</span></div>
+      </div>
+    </section>
+
+    <!-- ============================== -->
+    <!-- BCHNOSTR-READY ALERT EXPORT -->
+    <!-- ============================== -->
+    <section class="panel" id="exportPanel">
+      <div class="panel-head">
+        <h2>Alert export (BCHNostr-ready)</h2>
+        <p class="panel-sub">
+          Copy the latest whale alert as a structured JSON event, shaped for posting to a Nostr
+          relay or any BCH community bot. Nothing is sent automatically — you control where it goes.
+        </p>
+      </div>
+      <pre class="export-block mono" id="exportBlock">// Whale alerts will appear here as they're detected.</pre>
+      <button class="btn-secondary" id="copyExportBtn">Copy JSON</button>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      Data: <a href="https://api.haskoin.com/bch" target="_blank" rel="noopener">Haskoin BCH Store API</a>
+      &nbsp;+&nbsp;
+      <a href="https://api.coinpaprika.com" target="_blank" rel="noopener">CoinPaprika</a>.
+      No accounts, no tracking, no backend. Static site — runs entirely in your browser.
+    </p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

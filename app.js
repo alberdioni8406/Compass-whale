@@ -727,6 +727,25 @@ function setupCopyButton() {
 }
 
 /* ----------------------------------------------------------
+   COPY DONATION ADDRESS BUTTON
+   ---------------------------------------------------------- */
+function setupDonateCopyButton() {
+  const btn = document.getElementById("copyDonateBtn");
+  if (!btn) return;
+  btn.addEventListener("click", async function () {
+    const text = document.getElementById("donateAddress").textContent.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(function () { btn.textContent = original; }, 1500);
+    } catch (err) {
+      console.error("Clipboard write failed:", err);
+    }
+  });
+}
+
+/* ----------------------------------------------------------
    FULL REFRESH CYCLE
    ---------------------------------------------------------- */
 async function runFullRefresh() {
@@ -754,6 +773,7 @@ function init() {
   });
 
   setupCopyButton();
+  setupDonateCopyButton();
 
   renderDistributionChart(); // draw an empty chart shell immediately
   window.addEventListener("resize", debounce(renderDistributionChart, 200));
